@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mi reproductor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+:root{
+  --bg:#EEF2F6; --surface:#FFFFFF; --ink:#1B2A3A; --muted:#5B6B7B; --line:#D3DCE5; --accent:#0F7B8A; --on-accent:#FFFFFF;
+  color-scheme: light;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121A22; --surface:#1B2631; --ink:#E6EDF3; --muted:#9AAABA; --line:#2B3947; --accent:#4CC3D3; --on-accent:#0B1A1E;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121A22; --surface:#1B2631; --ink:#E6EDF3; --muted:#9AAABA; --line:#2B3947; --accent:#4CC3D3; --on-accent:#0B1A1E;
+  color-scheme: dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Atkinson Hyperlegible",system-ui,"Segoe UI",Arial,sans-serif;font-size:1.0625rem;line-height:1.5}
+main{max-width:46rem;margin:0 auto;padding:1.25rem 1rem 3rem}
+header{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem}
+h1{font-size:1.5rem;margin:0}
+button,.pick{font:inherit;cursor:pointer}
+.pick{display:inline-block;background:var(--accent);color:var(--on-accent);font-weight:700;padding:.65rem 1.1rem;border-radius:.6rem;border:0}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+input[type=file]{position:absolute;opacity:0;width:1px;height:1px}
+input[type=file]:focus-visible + .pick{outline:3px solid var(--ink);outline-offset:3px}
+.now{background:var(--surface);border:1px solid var(--line);border-radius:1rem;padding:1.5rem 1.25rem}
+.title{font-size:1.5rem;font-weight:700;margin:0;overflow-wrap:anywhere}
+.sub{color:var(--muted);margin:.25rem 0 1.25rem;overflow-wrap:anywhere;min-height:1.5em}
+.seek{display:flex;align-items:center;gap:.75rem}
+.seek span{color:var(--muted);font-variant-numeric:tabular-nums;min-width:3.2rem}
+.seek span:last-child{text-align:right}
+input[type=range]{flex:1;accent-color:var(--accent);height:2rem}
+.ctrl{display:flex;justify-content:center;align-items:center;gap:1rem;margin-top:1rem}
+.ctrl button{background:transparent;color:var(--ink);border:1px solid var(--line);width:3.25rem;height:3.25rem;border-radius:50%;display:grid;place-items:center}
+.ctrl button:hover{border-color:var(--accent)}
+.ctrl button svg{width:1.5rem;height:1.5rem;fill:currentColor}
+.ctrl .play{background:var(--accent);color:var(--on-accent);border-color:var(--accent);width:4.25rem;height:4.25rem}
+.status{color:var(--muted);margin:1rem 0 .5rem}
+.list{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:1rem;background:var(--surface);overflow:hidden}
+.list li button{width:100%;text-align:left;background:transparent;color:var(--ink);border:0;border-bottom:1px solid var(--line);padding:.75rem 1rem;display:block}
+.list li:last-child button{border-bottom:0}
+.list li button:hover{background:var(--bg)}
+.list li button[aria-current=true]{box-shadow:inset .3rem 0 0 var(--accent);background:var(--bg);font-weight:700}
+.list small{display:block;color:var(--muted);font-weight:400;overflow-wrap:anywhere}
+.empty{padding:1.25rem;color:var(--muted)}
+.vol{display:flex;align-items:center;justify-content:center;gap:.75rem;margin-top:1.25rem}
+.vol button{background:transparent;color:var(--ink);border:1px solid var(--line);width:2.5rem;height:2.5rem;border-radius:50%;display:grid;place-items:center}
+.vol button:hover{border-color:var(--accent)}
+.vol svg{width:1.25rem;height:1.25rem;fill:currentColor}
+.vol input[type=range]{flex:0 1 14rem}
+.vol span{color:var(--muted);font-variant-numeric:tabular-nums;min-width:3rem}
+.search{width:100%;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:.6rem;padding:.65rem .9rem;margin:.5rem 0 0}
+.lib h2{font-size:1.25rem;margin:1.75rem 0 .25rem;overflow-wrap:anywhere}
+.lib h3{font-size:1.0625rem;margin:1rem 0 .5rem;color:var(--muted);overflow-wrap:anywhere}
+.lib h3 small{font-weight:400}
+.qual{display:inline-block;margin:-.75rem 0 1.25rem;padding:.2rem .75rem;border:1px solid var(--accent);border-radius:2rem;color:var(--accent);font-size:.95rem;font-weight:700}
+.qual:empty{display:none}
+@media (prefers-reduced-motion:no-preference){.ctrl button{transition:border-color .15s}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Mi reproductor</h1>
+    <div>
+      <input type="file" id="folder" webkitdirectory multiple aria-label="Elegir carpeta de música">
+      <label class="pick" for="folder">Elegir carpeta de música</label>
+    </div>
+  </header>
+
+  <section class="now" aria-label="Reproduciendo ahora">
+    <p class="title" id="title">Nada reproduciéndose</p>
+    <p class="sub" id="sub">Elige la carpeta donde guardas tus archivos FLAC.</p>
+    <p class="qual" id="qual"></p>
+    <div class="seek">
+      <span id="cur">0:00</span>
+      <input type="range" id="seek" min="0" max="0" value="0" step="0.1" aria-label="Posición de la pista">
+      <span id="dur">0:00</span>
+    </div>
+    <div class="ctrl">
+      <button id="prev" aria-label="Pista anterior"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM20 6v12L9.5 12z"/></svg></button>
+      <button id="play" class="play" aria-label="Reproducir"><svg viewBox="0 0 24 24" id="ico"><path d="M8 5v14l11-7z"/></svg></button>
+      <button id="next" aria-label="Pista siguiente"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM4 6l10.5 6L4 18z"/></svg></button>
+    </div>
+    <div class="vol">
+      <button id="mute" aria-label="Silenciar"><svg viewBox="0 0 24 24"><path id="vico" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg></button>
+      <input type="range" id="vol" min="0" max="1" step="0.01" value="1" aria-label="Volumen">
+      <span id="volpct">100%</span>
+    </div>
+  </section>
+
+  <p class="status" id="status" role="status"></p>
+  <input type="search" id="q" class="search" placeholder="Buscar artista, álbum o canción" aria-label="Buscar en la biblioteca">
+  <div class="lib" id="list"><p class="empty">Aquí aparecerán tus pistas.</p></div>
+</main>
+
+<script>
+(function(){
+  var $ = function(id){return document.getElementById(id)};
+  var audio = new Audio();
+  var tracks = [], idx = -1, url = null, dragging = false;
+  var PLAY = "M8 5v14l11-7z", PAUSE = "M6 5h4v14H6zM14 5h4v14h-4z";
+
+  function fmt(s){
+    if(!isFinite(s)) return "0:00";
+    var m = Math.floor(s/60), r = Math.floor(s%60);
+    return m + ":" + (r<10?"0":"") + r;
+  }
+  function nameOf(f){ return f.name.replace(/\.[^.]+$/, ""); }
+  function folderOf(f){
+    var p = f.webkitRelativePath || "";
+    var parts = p.split("/"); parts.pop(); parts.shift();
+    return parts.join(" / ");
+  }
+
+  async function readMeta(f){
+    var m = {};
+    try{
+      var head = new DataView(await f.slice(0,10).arrayBuffer()), off = 0;
+      if(head.getUint8(0)===0x49 && head.getUint8(1)===0x44 && head.getUint8(2)===0x33){
+        off = 10 + ((head.getUint8(6)<<21)|(head.getUint8(7)<<14)|(head.getUint8(8)<<7)|head.getUint8(9));
+        head = new DataView(await f.slice(off,off+4).arrayBuffer());
+      }
+      if(head.getUint32(0) !== 0x664C6143) return m;
+      var pos = off + 4, last = false;
+      while(!last && pos < f.size){
+        var h = new DataView(await f.slice(pos,pos+4).arrayBuffer());
+        var b = h.getUint8(0), type = b & 127, len = (h.getUint8(1)<<16)|(h.getUint8(2)<<8)|h.getUint8(3);
+        last = !!(b & 128); pos += 4;
+        if(type === 0 || type === 4){
+          var buf = await f.slice(pos,pos+len).arrayBuffer(), v = new DataView(buf);
+          if(type === 0){
+            m.rate = (v.getUint8(10)<<12)|(v.getUint8(11)<<4)|(v.getUint8(12)>>4);
+            m.bits = (((v.getUint8(12)&1)<<4)|(v.getUint8(13)>>4)) + 1;
+          } else {
+            var p = 4 + v.getUint32(0,true), n = v.getUint32(p,true), t = {}; p += 4;
+            for(var k=0;k<n && p<len;k++){
+              var l = v.getUint32(p,true); p += 4;
+              var s = new TextDecoder().decode(new Uint8Array(buf,p,l)); p += l;
+              var e = s.indexOf("=");
+              if(e > 0) t[s.slice(0,e).toUpperCase()] = s.slice(e+1);
+            }
+            m.title = t.TITLE; m.by = t.ARTIST; m.artist = t.ALBUMARTIST || t.ARTIST; m.album = t.ALBUM;
+            m.year = (t.DATE || t.YEAR || "").slice(0,4);
+            m.no = parseInt(t.TRACKNUMBER,10) || 0; m.disc = parseInt(t.DISCNUMBER,10) || 1;
+          }
+        }
+        pos += len;
+      }
+    }catch(err){}
+    return m;
+  }
+
+  function build(f,m){
+    var fo = folderOf(f).split(" / ").pop();
+    var artist = m.artist || "Artista desconocido";
+    return { file:f, title:m.title || nameOf(f), by:m.by || artist, artist:artist, album:m.album || fo || "Álbum desconocido",
+      year:m.year || "", no:m.no || 0, disc:m.disc || 1, rate:m.rate || 0, bits:m.bits || 0 };
+  }
+
+  function cmp(a,b){
+    var c = function(x,y){ return String(x).localeCompare(String(y), "es", {numeric:true, sensitivity:"base"}); };
+    return c(a.artist,b.artist) || c(a.year,b.year) || c(a.album,b.album) || (a.disc-b.disc) || (a.no-b.no) || c(a.file.name,b.file.name);
+  }
+
+  async function loadAll(files){
+    var list = [], n = 0;
+    for(var i=0;i<files.length;i+=16){
+      var chunk = files.slice(i,i+16);
+      var res = await Promise.all(chunk.map(readMeta));
+      chunk.forEach(function(f,k){ list.push(build(f,res[k])); });
+      n += chunk.length;
+      $("status").textContent = "Leyendo datos de las pistas: " + n + " de " + files.length + "…";
+    }
+    list.sort(cmp);
+    tracks = list; $("q").value = "";
+    renderList();
+    $("status").textContent = tracks.length + (tracks.length===1 ? " pista encontrada." : " pistas encontradas.");
+    play(0);
+  }
+
+  $("q").addEventListener("input", renderList);
+
+  $("folder").addEventListener("change", function(e){
+    var files = Array.prototype.slice.call(e.target.files).filter(function(f){
+      return /\.(flac|wav|mp3|m4a|ogg)$/i.test(f.name);
+    });
+    audio.pause(); idx = -1; tracks = [];
+    if(!files.length){
+      renderList();
+      $("status").textContent = "No encontré archivos de audio en esa carpeta. Prueba con otra.";
+      return;
+    }
+    loadAll(files);
+  });
+
+  function renderList(){
+    var box = $("list"); box.innerHTML = "";
+    if(!tracks.length){
+      box.innerHTML = '<p class="empty">Aquí aparecerán tus pistas.</p>';
+      return;
+    }
+    var q = $("q").value.trim().toLowerCase(), shown = 0, lastA = null, lastB = null, ul = null;
+    tracks.forEach(function(t,i){
+      if(q && (t.artist + " " + t.album + " " + t.title).toLowerCase().indexOf(q) < 0) return;
+      shown++;
+      if(t.artist !== lastA){
+        var h2 = document.createElement("h2"); h2.textContent = t.artist; box.appendChild(h2);
+        lastA = t.artist; lastB = null;
+      }
+      if(t.album !== lastB){
+        var h3 = document.createElement("h3"); h3.textContent = t.album;
+        if(t.year){ var s = document.createElement("small"); s.textContent = " (" + t.year + ")"; h3.appendChild(s); }
+        box.appendChild(h3);
+        ul = document.createElement("ul"); ul.className = "list"; box.appendChild(ul);
+        lastB = t.album;
+      }
+      var li = document.createElement("li"), b = document.createElement("button");
+      b.type = "button"; b.dataset.i = i;
+      b.textContent = (t.no ? t.no + ". " : "") + t.title;
+      b.addEventListener("click", function(){ play(i); });
+      li.appendChild(b); ul.appendChild(li);
+    });
+    if(!shown) box.innerHTML = '<p class="empty">No hay resultados para esa búsqueda.</p>';
+    mark();
+  }
+
+  function mark(){
+    var btns = $("list").querySelectorAll("button");
+    for(var i=0;i<btns.length;i++){
+      if(+btns[i].dataset.i === idx) btns[i].setAttribute("aria-current","true"); else btns[i].removeAttribute("aria-current");
+    }
+  }
+
+  function play(i){
+    if(i<0 || i>=tracks.length) return;
+    idx = i;
+    if(url) URL.revokeObjectURL(url);
+    var t = tracks[i];
+    url = URL.createObjectURL(t.file);
+    audio.src = url;
+    $("title").textContent = t.title;
+    $("sub").textContent = t.by + ", " + t.album;
+    var ext = t.file.name.split(".").pop().toUpperCase();
+    $("qual").textContent = t.rate ? "FLAC, " + t.bits + " bits, " + (t.rate/1000) + " kHz" : ext + " (sin datos de calidad)";
+    mark();
+    var p = audio.play();
+    if(p && p.catch) p.catch(function(){
+      $("status").textContent = "No se pudo reproducir. Pulsa el botón de play para intentarlo de nuevo.";
+    });
+  }
+
+  function setIcon(playing){
+    $("ico").firstElementChild.setAttribute("d", playing ? PAUSE : PLAY);
+    $("play").setAttribute("aria-label", playing ? "Pausar" : "Reproducir");
+  }
+
+  $("play").addEventListener("click", function(){
+    if(idx < 0){ if(tracks.length) play(0); return; }
+    if(audio.paused) audio.play(); else audio.pause();
+  });
+  $("prev").addEventListener("click", function(){
+    if(audio.currentTime > 3) audio.currentTime = 0; else play(idx-1);
+  });
+  $("next").addEventListener("click", function(){ play(idx+1); });
+
+  audio.addEventListener("play", function(){ setIcon(true); });
+  audio.addEventListener("pause", function(){ setIcon(false); });
+  audio.addEventListener("ended", function(){
+    if(idx < tracks.length-1) play(idx+1);
+    else { setIcon(false); $("status").textContent = "Llegaste al final de la lista."; }
+  });
+  audio.addEventListener("error", function(){
+    $("status").textContent = "Este archivo no se pudo leer. Pasa a otra pista.";
+  });
+  audio.addEventListener("loadedmetadata", function(){
+    $("seek").max = audio.duration; $("dur").textContent = fmt(audio.duration);
+  });
+  audio.addEventListener("timeupdate", function(){
+    $("cur").textContent = fmt(audio.currentTime);
+    if(!dragging) $("seek").value = audio.currentTime;
+  });
+  $("seek").addEventListener("input", function(){ dragging = true; $("cur").textContent = fmt(this.value); });
+  $("seek").addEventListener("change", function(){ audio.currentTime = parseFloat(this.value); dragging = false; });
+
+  var SPK = "M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z";
+  var MUT = "M3 9v6h4l5 5V4L7 9H3zm13.6 3l2.4-2.4-1.4-1.4-2.4 2.4-2.4-2.4-1.4 1.4 2.4 2.4-2.4 2.4 1.4 1.4 2.4-2.4 2.4 2.4 1.4-1.4z";
+  function showVol(){
+    var v = audio.muted ? 0 : audio.volume;
+    $("volpct").textContent = Math.round(v*100) + "%";
+    $("vico").setAttribute("d", v === 0 ? MUT : SPK);
+    $("mute").setAttribute("aria-label", audio.muted || v === 0 ? "Quitar silencio" : "Silenciar");
+    $("vol").value = v;
+  }
+  $("vol").addEventListener("input", function(){
+    audio.volume = parseFloat(this.value);
+    audio.muted = audio.volume === 0;
+    showVol();
+  });
+  $("mute").addEventListener("click", function(){
+    if(audio.volume === 0){ audio.volume = 0.5; audio.muted = false; }
+    else audio.muted = !audio.muted;
+    showVol();
+  });
+
+  document.addEventListener("keydown", function(e){
+    if(e.target && /INPUT|BUTTON/.test(e.target.tagName) && e.key === " ") return;
+    if(e.key === " "){ e.preventDefault(); $("play").click(); }
+  });
+})();
+</script>
+</body>
+</html>
