@@ -339,7 +339,7 @@ input[type=range]{flex:1;accent-color:var(--accent);height:2rem}
 
   var sv = 0;
   try{ sv = parseFloat(localStorage.getItem("repro-vol")); }catch(err){}
-  audio.volume = (sv > 0 && sv <= 1) ? sv : 0.5;
+  audio.volume = (sv > 0 && sv <= 1) ? sv : 0.2;
   showVol();
 
   document.addEventListener("keydown", function(e){
