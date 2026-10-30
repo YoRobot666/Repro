@@ -65,13 +65,15 @@ input[type=range]{flex:1;accent-color:var(--accent);height:2rem}
 .lib h3 small{font-weight:400}
 .qual{display:inline-block;margin:-.75rem 0 1.25rem;padding:.2rem .75rem;border:1px solid var(--accent);border-radius:2rem;color:var(--accent);font-size:.95rem;font-weight:700}
 .qual:empty{display:none}
+.art{display:block;width:min(100%,16rem);aspect-ratio:1;object-fit:cover;border-radius:.75rem;margin:0 auto 1.25rem;border:1px solid var(--line)}
+.art[hidden]{display:none}
 @media (prefers-reduced-motion:no-preference){.ctrl button{transition:border-color .15s}}
 </style>
 </head>
 <body>
 <main>
   <header>
-    <h1>Mi reproductor de musica</h1>
+    <h1>Mi reproductor</h1>
     <div>
       <input type="file" id="folder" webkitdirectory multiple aria-label="Elegir carpeta de música">
       <label class="pick" for="folder">Elegir carpeta de música</label>
@@ -79,6 +81,7 @@ input[type=range]{flex:1;accent-color:var(--accent);height:2rem}
   </header>
 
   <section class="now" aria-label="Reproduciendo ahora">
+    <img class="art" id="art" alt="Portada del álbum" hidden>
     <p class="title" id="title">Nada reproduciéndose</p>
     <p class="sub" id="sub">Elige la carpeta donde guardas tus archivos FLAC.</p>
     <p class="qual" id="qual"></p>
@@ -155,6 +158,7 @@ input[type=range]{flex:1;accent-color:var(--accent);height:2rem}
             m.no = parseInt(t.TRACKNUMBER,10) || 0; m.disc = parseInt(t.DISCNUMBER,10) || 1;
           }
         }
+        if(type === 6 && !m.picLen){ m.picPos = pos; m.picLen = len; }
         pos += len;
       }
     }catch(err){}
@@ -165,7 +169,7 @@ input[type=range]{flex:1;accent-color:var(--accent);height:2rem}
     var fo = folderOf(f).split(" / ").pop();
     var artist = m.artist || "Artista desconocido";
     return { file:f, title:m.title || nameOf(f), by:m.by || artist, artist:artist, album:m.album || fo || "Álbum desconocido",
-      year:m.year || "", no:m.no || 0, disc:m.disc || 1, rate:m.rate || 0, bits:m.bits || 0 };
+      year:m.year || "", no:m.no || 0, disc:m.disc || 1, rate:m.rate || 0, bits:m.bits || 0, picPos:m.picPos || 0, picLen:m.picLen || 0 };
   }
 
   function cmp(a,b){
@@ -187,6 +191,24 @@ input[type=range]{flex:1;accent-color:var(--accent);height:2rem}
     renderList();
     $("status").textContent = tracks.length + (tracks.length===1 ? " pista encontrada." : " pistas encontradas.");
     play(0);
+  }
+
+  var artUrl = null;
+  async function showCover(t){
+    var img = $("art"), mine = idx;
+    if(artUrl){ URL.revokeObjectURL(artUrl); artUrl = null; }
+    img.hidden = true; img.removeAttribute("src");
+    if(!t.picLen) return;
+    try{
+      var buf = await t.file.slice(t.picPos, t.picPos + t.picLen).arrayBuffer(), v = new DataView(buf);
+      var p = 4, ml = v.getUint32(p); p += 4;
+      var mime = new TextDecoder().decode(new Uint8Array(buf,p,ml)); p += ml;
+      var dl = v.getUint32(p); p += 4 + dl + 16;
+      var n = v.getUint32(p); p += 4;
+      if(mine !== idx) return;
+      artUrl = URL.createObjectURL(new Blob([new Uint8Array(buf,p,n)], {type: mime || "image/jpeg"}));
+      img.src = artUrl; img.hidden = false;
+    }catch(err){}
   }
 
   $("q").addEventListener("input", renderList);
@@ -253,6 +275,7 @@ input[type=range]{flex:1;accent-color:var(--accent);height:2rem}
     $("sub").textContent = t.by + ", " + t.album;
     var ext = t.file.name.split(".").pop().toUpperCase();
     $("qual").textContent = t.rate ? "FLAC, " + t.bits + " bits, " + (t.rate/1000) + " kHz" : ext + " (sin datos de calidad)";
+    showCover(t);
     mark();
     var p = audio.play();
     if(p && p.catch) p.catch(function(){
@@ -305,6 +328,7 @@ input[type=range]{flex:1;accent-color:var(--accent);height:2rem}
   $("vol").addEventListener("input", function(){
     audio.volume = parseFloat(this.value);
     audio.muted = audio.volume === 0;
+    try{ localStorage.setItem("repro-vol", String(audio.volume)); }catch(err){}
     showVol();
   });
   $("mute").addEventListener("click", function(){
@@ -312,6 +336,11 @@ input[type=range]{flex:1;accent-color:var(--accent);height:2rem}
     else audio.muted = !audio.muted;
     showVol();
   });
+
+  var sv = 0;
+  try{ sv = parseFloat(localStorage.getItem("repro-vol")); }catch(err){}
+  audio.volume = (sv > 0 && sv <= 1) ? sv : 0.5;
+  showVol();
 
   document.addEventListener("keydown", function(e){
     if(e.target && /INPUT|BUTTON/.test(e.target.tagName) && e.key === " ") return;
